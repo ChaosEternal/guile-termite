@@ -1,10 +1,9 @@
 
 
-(library (mailbox)
+(library (thread-mailbox mailbox)
 (export make-empty-mailbox
 	mailbox-rewind!
 	mailbox-rewound?
-	mailbox-extract-and-rewind
 	mailbox-send
 	mailbox-next-value-or-receive
 	mailbox-receive
@@ -111,13 +110,6 @@
 (define (mailbox-rewound? mbox)
   (mbox 'rewound?))
 
-(define (mailbox-extract-and-rewind mbox . timeout)
-  (let ((tmout (if (or (null? timeout)
-		       (not (time? (car timeout))))
-		   #f
-		   (car timeout))))
-    (mbox 'extract-and-rewind tmout)))
-
 (define (mailbox-send mbox message)
   (mbox 'send message))
 
@@ -149,10 +141,10 @@
   (apply mailbox-next-value-or-receive
 	 (cons mbox (cons #f timeout-and-default))))
 
-;; (define (mailbox-extract-and-rewind mbox . timeout)
-;;   (if (null? timeout)
-;;       (mailbox-extract-and-rewind mbox #f)
-;;       (mbox 'extract-and-rewind (car timeout))))
+(define (mailbox-extract-and-rewind mbox . timeout)
+  (if (null? timeout)
+      (mailbox-extract-and-rewind mbox #f)
+      (mbox 'extract-and-rewind (car timeout))))
 )
 ;; (define mymbox (make-empty-mailbox))
 
