@@ -2,6 +2,7 @@
 
 (library (thread-mailbox thread-mailbox)
 (export thread-mailbox-make-and-set!
+	thread-mailbox-get
 	thread-mailbox-rewound?
 	thread-send
 	thread-receive
@@ -19,26 +20,34 @@
 
 (define (thread-mailbox-make-and-set! . thread)
   (if (null? thread)
-      (thread-mailbox-make-and-set! (current-thread))
+      (thread-mailbox-make-and-set! )
       (thread-specific-set! (car thread) (make-empty-mailbox))))
 
+(define (thread-mailbox-get . thread)
+  (if (null? thread)
+      (thread-mailbox-get (current-thread))
+      (let ((mbox (thread-specific-get (car thread))))
+	(if (not mbox)
+	    (throw 'thread-mailbox-nonexists "thread mailbox not exists!")
+	    mbox))))
+
 (define (thread-mailbox-rewound?)
-  (mailbox-rewound? (thread-specific-get (current-thread))))
+  (mailbox-rewound? (thread-mailbox-get)))
 
 (define (thread-send thread message)
-  (mailbox-send (thread-specific-get thread) message))
+  (mailbox-send (thread-mailbox-get thread) message))
 
 (define (thread-receive . timeout-and-default)
-  (apply mailbox-receive (cons (thread-specific-get (current-thread))
+  (apply mailbox-receive (cons (thread-mailbox-get)
 			       timeout-and-default)))
 
 (define (thread-mailbox-next . timeout-and-default)
-  (apply mailbox-next-value (cons (thread-specific-get (current-thread))
+  (apply mailbox-next-value (cons (thread-mailbox-get)
 				  timeout-and-default)))
 
 (define (thread-mailbox-rewind!)
-  (mailbox-rewind! (thread-specific-get (current-thread))))
+  (mailbox-rewind! (thread-mailbox-get)))
 
 (define (thread-mailbox-extract-and-rewind . timeout)
-  (apply mailbox-extract-and-rewind timeout))
+  (apply mailbox-extract-and-rewind (thread-mailbox-get) timeout))
 )
