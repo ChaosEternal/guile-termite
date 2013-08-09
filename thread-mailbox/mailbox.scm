@@ -51,18 +51,22 @@
 				  (cons mutex 
 					(if timeout (cons timeout '()) '()) ;; work around for bug of mutex-lock!
 					)))
-		      (throw 'A-timeout-reached))
-		  (if (null? (cddr cursor))
-		      (begin
-			(if (not
-			     (apply mutex-unlock!
-				    (cons mutex (cons read-cond-var
-						      (if timeout (cons timeout '()) '()) ;; workaround of bug of mutex-unlock!
-						      ))))
-			    (throw 'timeout-reached))
-			(next-value-or-receive receive? timeout))))
+		      (throw 'timeout-reached))
+		  (begin
+		    (if (not
+			 (apply mutex-unlock!
+				(cons mutex 
+				      (if (null? (cddr cursor))
+					  (cons read-cond-var
+						(if timeout (cons timeout '()) '()) ;; workaround of bug of mutex-unlock!
+						)
+					  '()
+					  ))))
+			 (throw 'timeout-reached))
+		    (next-value-or-receive receive? timeout))		  
+		  )
 		(let ([result (caddr cursor)]
-		      [ncursor (if (null? cursor) (display 'kao)  (cdr cursor))])
+		      [ncursor (cdr cursor)])
 		  (if receive?
 		      (begin
 			(mutex-lock! mutex)
