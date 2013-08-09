@@ -20,13 +20,13 @@
 
 (define (thread-mailbox-make-and-set! . thread)
   (if (null? thread)
-      (thread-mailbox-make-and-set! )
+      (thread-mailbox-make-and-set! (current-thread))
       (thread-specific-set! (car thread) (make-empty-mailbox))))
 
 (define (thread-mailbox-get . thread)
   (if (null? thread)
       (thread-mailbox-get (current-thread))
-      (let ((mbox (thread-specific-get (car thread))))
+      (let ((mbox (thread-specific (car thread))))
 	(if (not mbox)
 	    (throw 'thread-mailbox-nonexists "thread mailbox not exists!")
 	    mbox))))

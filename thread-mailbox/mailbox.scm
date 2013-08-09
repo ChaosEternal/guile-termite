@@ -23,46 +23,58 @@
 ;; 	     (srfi srfi-34))
 
 ;; make an empty mailbox, with 2 place-holders
-(define (make-mbox) (sync-q!
-		     '((place-holder
-			place-holder2)))) 
+;; (define (make-mbox) (sync-q!
+;; 		     '((place-holder
+;; 			place-holder2)))) 
+
+(define (make-mbox)
+  (let ((q (make-q)))
+    (enq! q 'place-holder)
+    (enq! q 'place-holder2)
+    q))
+
 (define (make-empty-mailbox)
   (let* ((mutex (make-mutex))
 	 (read-cond-var (make-condition-variable))
 	 (mbox (make-mbox))
 	 (cursor (car mbox)))
     (letrec*
-	([next-value-or-receive (lambda (receive? timeout)
-		      (if (null? (cddr cursor))
-			  (begin
-			    (if (not (apply mutex-lock! 
-					    (cons mutex 
-						  (if timeout (cons timeout '()) '()) ;; work around for bug of mutex-lock!
-						  )))
-				(throw 'timeout-reached))
-			    (if (null? (cddr cursor))
-				(begin
-				  (if (not
-				       (apply mutex-unlock!
-					      (cons mutex (cons read-cond-var
-								(if timeout (cons timeout '()) '()) ;; workaround of bug of mutex-unlock!
-								))))
-				      (throw 'timeout-reached))
-				  (next-value-or-receive receive? timeout))))
-			  (let ([result (caddr cursor)]
-				[ncursor (cdr cursor)])
-			    (if receive?
-				(if (null? (cddr ncursor))
-				      (begin (mutex-lock! mutex)
-					     (let ((tail (cdr ncursor)))
-					       (set-cdr! ncursor (cddr ncursor))
-					       (if (null? (cdr tail))
-						   (set-cdr! mbox tail)))
-					     (mutex-unlock! mutex))
-				      (set-cdr! ncursor (cddr ncursor))
-				      )
-				(set! cursor ncursor))
-			    result)))]
+	([next-value-or-receive
+	  (lambda (receive? timeout)
+	    ;; (letrec* ((syscddr cddr)
+	    ;; 	      (cddr (lambda (x)
+	    ;; 		      (if (or (null? x) (null? (cdr x))) (display (cons mbox cursor)))
+	    ;; 		      (syscddr x))))
+	    (if (null? (cddr cursor))
+		(begin
+		  (if (not (apply mutex-lock! 
+				  (cons mutex 
+					(if timeout (cons timeout '()) '()) ;; work around for bug of mutex-lock!
+					)))
+		      (throw 'A-timeout-reached))
+		  (if (null? (cddr cursor))
+		      (begin
+			(if (not
+			     (apply mutex-unlock!
+				    (cons mutex (cons read-cond-var
+						      (if timeout (cons timeout '()) '()) ;; workaround of bug of mutex-unlock!
+						      ))))
+			    (throw 'timeout-reached))
+			(next-value-or-receive receive? timeout))))
+		(let ([result (caddr cursor)]
+		      [ncursor (if (null? cursor) (display 'kao)  (cdr cursor))])
+		  (if receive?
+		      (begin
+			(mutex-lock! mutex)
+			(if (null? (cddr ncursor))
+			    (let ()
+			      (set-cdr! ncursor (cddr ncursor))
+			      (if (null? (cdr ncursor))
+				  (set-cdr! mbox ncursor)))
+			    (set-cdr! ncursor (cddr ncursor)))
+			(mutex-unlock! mutex))
+		      (set! cursor ncursor))
+		  result)))]
 	 [rewind (lambda () (set! cursor (car mbox)))]
 	 [rewound? (lambda () (eq? (car cursor) (car (car mbox))))]
 	 [extract-and-rewind (lambda (timeout)
@@ -71,12 +83,14 @@
 				   (let ((value (cadr cursor)))
 				     (begin
 				       (if (null? (cddr cursor))
-					   (begin (mutex-lock! mutex timeout)
-						  (let ((tail (cdr cursor)))
-						    (set-cdr! cursor (cddr cursor))
-						    (if (null? (cdr tail))
-							(set-cdr! mbox tail)))
-						  (mutex-unlock! mutex))
+;					   (call-with-blocked-asyncs
+;					    (lambda ()
+					   (begin
+					     (mutex-lock! mutex timeout)
+					     (set-cdr! cursor (cddr cursor))
+					     (if (null? (cdr cursor))
+						 (set-cdr! mbox cursor))
+					     (mutex-unlock! mutex))
 					   (set-cdr! cursor (cddr cursor)))
 				       (set! cursor (car mbox)))
 				     value))
@@ -84,7 +98,9 @@
 	 [send (lambda (message)
 		 (begin
 		   (mutex-lock! mutex)
-		   (enq! mbox message)
+		   (call-with-blocked-asyncs 
+		    (lambda ()
+		      (enq! mbox message)))
 		   (condition-variable-signal! read-cond-var)
 		   (mutex-unlock! mutex)))]
 	 )
@@ -92,13 +108,16 @@
 	  (dynamic-wind
 	      (lambda () #t)
 	      (lambda ()
-		(case x
-		  ((rewind) (apply rewind y))
-		  ((rewound?) (apply rewound? y))
-		  ((extract-and-rewind) (apply extract-and-rewind y))
-		  ((next-value-or-receive) (apply next-value-or-receive y))
-		  ((send) (apply send y))
-		  ))
+		   (case x
+		     ((rewind) (apply rewind y))
+		     ((rewound?) (apply rewound? y))
+		     ((extract-and-rewind) (apply extract-and-rewind y))
+		     ((next-value-or-receive) (apply next-value-or-receive y))
+		     ((send) (apply send y))
+		     ((getmutex) mutex)
+		     ((getmbox) mbox)
+		     ((dump) (begin (display mbox) (newline) (display cursor)))
+		     ))
 	      (lambda ()
 		(if (eq? (mutex-state mutex) (current-thread))
 		    (mutex-unlock! mutex)))))
