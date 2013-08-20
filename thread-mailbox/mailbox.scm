@@ -23,9 +23,6 @@
 ;; 	     (srfi srfi-34))
 
 ;; make an empty mailbox, with 2 place-holders
-;; (define (make-mbox) (sync-q!
-;; 		     '((place-holder
-;; 			place-holder2)))) 
 
 (define (make-mbox)
   (let ((q (make-q)))
@@ -41,10 +38,6 @@
     (letrec*
 	([next-value-or-receive
 	  (lambda (receive? timeout)
-	    ;; (letrec* ((syscddr cddr)
-	    ;; 	      (cddr (lambda (x)
-	    ;; 		      (if (or (null? x) (null? (cdr x))) (display (cons mbox cursor)))
-	    ;; 		      (syscddr x))))
 	    (if (null? (cddr cursor))
 		(begin
 		  (if (not (apply mutex-lock! 
@@ -87,8 +80,6 @@
 				   (let ((value (cadr cursor)))
 				     (begin
 				       (if (null? (cddr cursor))
-;					   (call-with-blocked-asyncs
-;					    (lambda ()
 					   (begin
 					     (mutex-lock! mutex timeout)
 					     (set-cdr! cursor (cddr cursor))
@@ -142,8 +133,6 @@
 				 mbox
 				 receive?
 				 #f))
-   ;;((and (time? (car timeout-and-default)) (not (eq? #f (car timeout-and-default))))
-   ;;  (raise 'invalid-timeout))
    ((null? (cdr timeout-and-default)) 
     (mbox 
      'next-value-or-receive receive? (car timeout-and-default)))
