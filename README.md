@@ -6,3 +6,4 @@ Guile-Termite is a port of Termite model to the GNU Guile. It contains two parts
 2. The Termite framework itself
 
 Currently the thread-mailbox is finished.
+
