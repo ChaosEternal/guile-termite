@@ -53,13 +53,18 @@
     ((_ e1 e2 ...)
      (begin e1 e2 ...))))
 
+(define-syntax on-fail-helper
+  (syntax-rules ()
+    ((_ #f) 
+     (error 'match "no matching pattern"))
+    ((_ e1)
+     e1)))
+
 (define-syntax match-next/action
   (syntax-rules (=>)
     ;; no more clauses, the match failed
     ((match-next/action on-success on-failure v g+s)
-     (if (not on-failure) 
-	 (error 'match "no matching pattern")
-	 on-failure))
+     (on-fail-helper on-failure))
     ;; named failure continuation
     ((match-next/action on-success on-failure v g+s (pat (=> failure) . body) . rest)
      (let ((failure (lambda () (match-next/action on-success on-failure v g+s . rest))))

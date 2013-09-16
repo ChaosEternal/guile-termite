@@ -1,7 +1,6 @@
 
 (library (termite recv)
-(export recv
-        )
+(export recv)
 (import (termite match-action)
 	(rnrs (6))
 	(guile) ;; throw, set-cdr!, catch 
@@ -9,15 +8,12 @@
 	(srfi srfi-2)
 	(srfi srfi-34))
 
-	     
-
 (define-syntax  recv
   (syntax-rules (after)
     ((_ e1 e2 ... (after tmout on-tmout) ) (do-recv  tmout on-tmout e1 e2 ... ))
     ((_ e1 e2 ... ) (recv e1 e2 ... (after #f #f) ))
     )
 )
-
 
 (define-syntax do-recv
   (syntax-rules ()
